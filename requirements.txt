@@ -4,4 +4,4 @@ python-dotenv
 langchain-groq
 fastapi
 uvicorn
-litellm[proxy][proxy]
+litellm
