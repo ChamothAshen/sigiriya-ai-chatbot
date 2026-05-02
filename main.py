@@ -12,7 +12,7 @@ load_dotenv()
 if not os.getenv("OPENAI_API_KEY"):
     os.environ["OPENAI_API_KEY"] = "NA"
 
-app = FastAPI()
+app = FastAPI() 
 search_tool = SerperDevTool()
 
 # Use the active Groq model
@@ -24,7 +24,7 @@ sigiriya_llm = LLM(
 
 
 # ── Location Knowledge Base ─────────────────────────────────────────
-# Synced with Flutter app's 11 tourist attractions
+# Synced with Flutter app's 14 tourist attractions (11 original + 3 hidden gems)
 SIGIRIYA_KNOWLEDGE = {
     "Sigiriya Entrance": {
         "description": "The main entrance gateway to the ancient Sigiriya rock fortress complex, where visitors begin their journey into King Kashyapa's 5th-century citadel.",
@@ -212,10 +212,85 @@ SIGIRIYA_KNOWLEDGE = {
         ],
         "category": "Historical Site",
         "visit_order": 11
+    },
+    "Pahan Gala": {
+        "description": "Pahan Gala (also known as Mapagala) — an important internal location within the Sigiriya complex, featuring an ancient defensive fortress with remarkable cyclopean stone masonry that formed a key part of King Kashyapa's 5th-century citadel's surrounding defensive network.",
+        "key_facts": [
+            "Pahan Gala is an important internal location within the Sigiriya complex, serving as a defensive fortress structure integral to the site's military architecture.",
+            "The site features ancient cyclopean stone masonry — massive stone blocks fitted together without mortar, demonstrating advanced construction techniques.",
+            "It formed part of the outer defensive network protecting the Sigiriya royal complex, including the upper palace summit, landscaped gardens, and the famous Lion Gate.",
+            "The fortress predates or was contemporary with King Kashyapa's 5th-century construction, showcasing the broader strategic planning of the citadel.",
+            "Pahan Gala provides crucial evidence that Sigiriya's military and architectural planning extended well beyond the main rock, incorporating surrounding structures into a unified defensive system."
+        ],
+        "suggested_questions": [
+            "What role does Pahan Gala play within Sigiriya?",
+            "What is cyclopean stone masonry?",
+            "How did Pahan Gala function as a defensive structure?"
+        ],
+        "category": "Historical Site",
+        "visit_order": 12
+    },
+    "Aligala Caves": {
+        "description": "Aligala Cave — located on the eastern slope of Sigiriya Rock, this is the oldest known archaeological site within the Sigiriya complex, with excavations confirming human habitation dating back approximately 5,500 years to the Mesolithic period.",
+        "key_facts": [
+            "Aligala Cave is located on the eastern slope of Sigiriya Rock and holds the distinction of being the oldest known archaeological site within the Sigiriya complex.",
+            "According to the official archaeological signboard erected by the Department of Archaeology and the Central Cultural Fund, excavations have uncovered evidence of human habitation dating back approximately 5,500 years to the Mesolithic period.",
+            "Stone tools, animal remains, and floral evidence discovered here reveal that prehistoric humans used this cave as a shelter and living space.",
+            "Human occupation at this site continued through the Protohistoric period (10th to 9th century BCE), as confirmed by archaeological findings.",
+            "These discoveries make Aligala Cave one of the most important prehistoric sites in Sri Lanka, predating the fortress by thousands of years."
+        ],
+        "suggested_questions": [
+            "How old is Aligala Cave?",
+            "What was found during the excavations?",
+            "Why is Aligala the most important prehistoric site in Sigiriya?"
+        ],
+        "category": "Historical Site",
+        "visit_order": 13
+    },
+    "Rock Shelter": {
+        "description": "The Rock Shelter (Murakuti) — an important internal location within the Sigiriya complex, these ancient protective shelters were built directly into the Sigiriya rock and served as guard stations and lookout points for security and observation of the fortress.",
+        "key_facts": [
+            "The Rock Shelters at Sigiriya are ancient Murakuti — protective structures built into the rock face of the fortress.",
+            "They were strategically positioned as guard stations where soldiers and sentries stayed to provide round-the-clock security for the citadel.",
+            "The shelters doubled as lookout points, giving guards elevated vantage positions to observe approaching threats from all directions.",
+            "Their placement along the rock demonstrates King Kashyapa's sophisticated military planning, creating a layered defense system across the fortress.",
+            "The Murakuti rock shelters are a key example of how Sigiriya's natural rock formations were ingeniously adapted for military and defensive purposes."
+        ],
+        "suggested_questions": [
+            "What are the Murakuti rock shelters?",
+            "How were these shelters used for defense?",
+            "Where are the lookout points located on the rock?"
+        ],
+        "category": "Historical Site",
+        "visit_order": 14
     }
 }
 
 SIGIRIYA_SITES = list(SIGIRIYA_KNOWLEDGE.keys())
+
+# ── Location Alias Resolution ────────────────────────────────────────
+# Maps alternate names / common variants to the canonical location key
+LOCATION_ALIASES = {
+    # Pahan Gala variants
+    "pahangala": "Pahan Gala",
+    "pahan gala": "Pahan Gala",
+    "mapagala": "Pahan Gala",
+    # Aligala Caves variants
+    "aligala": "Aligala Caves",
+    "aligala caves": "Aligala Caves",
+    "aligala cave": "Aligala Caves",
+    # Rock Shelter variants
+    "rock shelter": "Rock Shelter",
+    "rock shelters": "Rock Shelter",
+    "rockshelter": "Rock Shelter",
+}
+
+def resolve_location(name: str) -> str:
+    """Resolve a location name to its canonical key, checking aliases (case-insensitive)."""
+    if name in SIGIRIYA_KNOWLEDGE:
+        return name
+    # Case-insensitive alias lookup
+    return LOCATION_ALIASES.get(name.lower(), name)
 
 
 # ── Request / Response Models ────────────────────────────────────────
@@ -249,7 +324,8 @@ async def get_all_locations():
 @app.post("/location-info")
 async def get_location_info(request: LocationRequest):
     """Called when user arrives at a new location. Returns welcome info and suggested questions."""
-    if request.location not in SIGIRIYA_KNOWLEDGE:
+    location = resolve_location(request.location)
+    if location not in SIGIRIYA_KNOWLEDGE:
         return {
             "location": request.location,
             "supported": False,
@@ -257,14 +333,14 @@ async def get_location_info(request: LocationRequest):
             "suggested_questions": []
         }
 
-    site = SIGIRIYA_KNOWLEDGE[request.location]
+    site = SIGIRIYA_KNOWLEDGE[location]
     return {
-        "location": request.location,
+        "location": location,
         "supported": True,
         "category": site["category"],
         "visit_order": site["visit_order"],
         "welcome_message": (
-            f"Welcome to {request.location}! 🏛️\n\n"
+            f"Welcome to {location}! 🏛️\n\n"
             f"I'm your AI tour guide powered by advanced AI. "
             f"Ask me anything about this fascinating place - its history, "
             f"significance, legends, or interesting facts!"
@@ -279,27 +355,28 @@ async def sigiriya_chat(request: ChatRequest):
     """AI chat — answers questions strictly about the user's current location."""
 
     # 1. HARD VALIDATION: location must be a known Sigiriya site
-    if request.location not in SIGIRIYA_KNOWLEDGE:
+    location = resolve_location(request.location)
+    if location not in SIGIRIYA_KNOWLEDGE:
         return {
             "location": request.location,
             "response": f"Sorry, I can only provide information for Sigiriya locations. Information for {request.location} is not available."
         }
 
     # 2. Build location-specific context
-    site = SIGIRIYA_KNOWLEDGE[request.location]
+    site = SIGIRIYA_KNOWLEDGE[location]
     facts = "\n".join(f"- {f}" for f in site["key_facts"])
-    other_locations = [name for name in SIGIRIYA_SITES if name != request.location]
+    other_locations = [name for name in SIGIRIYA_SITES if name != location]
     forbidden = ", ".join(other_locations)
 
     # 3. Create a strictly location-bound agent
     guide = Agent(
-        role=f"{request.location} Tour Guide",
+        role=f"{location} Tour Guide",
         goal=(
-            f"Give short, fun, engaging answers ONLY about {request.location}. "
+            f"Give short, fun, engaging answers ONLY about {location}. "
             f"Make tourists feel excited and connected to what they are seeing right now."
         ),
         backstory=(
-            f"You are a friendly, enthusiastic local guide standing right at {request.location} in Sigiriya.\n\n"
+            f"You are a friendly, enthusiastic local guide standing right at {location} in Sigiriya.\n\n"
             f"About this spot: {site['description']}\n\n"
             f"Facts you know:\n{facts}\n\n"
             f"RESPONSE STYLE:\n"
@@ -308,8 +385,8 @@ async def sigiriya_chat(request: ChatRequest):
             f"- Use simple, clear language. Spark curiosity and wonder.\n"
             f"- Emoji are welcome to make responses feel lively on mobile.\n\n"
             f"STRICT RULES:\n"
-            f"- ONLY talk about {request.location}. Never mention {forbidden}.\n"
-            f"- If asked about other places, reply: 'I'm your guide for {request.location} — ask me anything about this amazing spot!'"
+            f"- ONLY talk about {location}. Never mention {forbidden}.\n"
+            f"- If asked about other places, reply: 'I'm your guide for {location} — ask me anything about this amazing spot!'"
         ),
         tools=[search_tool],
         llm=sigiriya_llm,
@@ -319,12 +396,12 @@ async def sigiriya_chat(request: ChatRequest):
 
     task = Task(
         description=(
-            f"A tourist at {request.location} asks: '{request.user_query}'\n\n"
-            f"Answer in 2-3 short, friendly sentences about {request.location} only. "
+            f"A tourist at {location} asks: '{request.user_query}'\n\n"
+            f"Answer in 2-3 short, friendly sentences about {location} only. "
             f"If unrelated to this site, redirect them back with enthusiasm."
         ),
         expected_output=(
-            f"A short, friendly 2-3 sentence answer about {request.location}. "
+            f"A short, friendly 2-3 sentence answer about {location}. "
             f"Engaging, easy to read on mobile, no long paragraphs."
         ),
         agent=guide
@@ -333,7 +410,7 @@ async def sigiriya_chat(request: ChatRequest):
     crew = Crew(agents=[guide], tasks=[task])
     result = crew.kickoff()
 
-    return {"location": request.location, "response": str(result.raw)}
+    return {"location": location, "response": str(result.raw)}
 
 
 if __name__ == "__main__":
